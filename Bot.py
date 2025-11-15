@@ -1,78 +1,69 @@
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
 import os
 import logging
+import asyncio
+from telegram import Update
+from telegram.ext import (
+    Application, CommandHandler, MessageHandler,
+    ContextTypes, filters
+)
+from keep_alive import keep_alive
 
-# تنظیمات لاگ
+# 🔧 تنظیمات لاگر برای مشاهده در Koyeb Logs:
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-# خواندن توکن از environment variable
-TOKEN = os.getenv('BOT_TOKEN')
-if not TOKEN:
-    logger.error("❌ توکن یافت نشد! مطمئن شوید BOT_TOKEN تنظیم شده است.")
-    exit(1)
+# 📦 دریافت متغیرهای محیطی از Koyeb Dashboard
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHANNEL_ID = os.getenv("CHANNEL_ID")
+
+if not BOT_TOKEN:
+    logger.error("❌ BOT_TOKEN تعریف نشده!")
+    raise SystemExit(1)
 
 logger.info("✅ توکن با موفقیت خوانده شد")
+logger.info("🚀 در حال راه‌اندازی ربات...")
 
-async def start(update, context):
-    user = update.effective_user
-    await update.message.reply_text(
-        f'🎵 **سلام {user.first_name}! به ربات موزیک فایندر خوش اومدی!**\n\n'
-        '🎧 اسم خواننده و آهنگ رو بفرست تا برات پیدا کنم!\n'
-        'مثلاً: "علی سورنا آرزو" یا "بهرام نوروزی"'
-    )
-    logger.info(f"کارگر {user.first_name} از ربات استقبال کرد")
+# 🧠 تعریف دستورات پایه:
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("سلام رئیس 👑! ربات موزیک پوستر آماده‌ست 🎵")
 
-async def handle_message(update, context):
-    user_text = update.message.text
-    user = update.effective_user
-    
-    logger.info(f"📨 درخواست از {user.first_name}: {user_text}")
-    
-    # پیام زیبا برای کاربر
-    message = f"""
-🔥 DROP ALERT 🔥
+async def post_music(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not CHANNEL_ID:
+        await update.message.reply_text("❌ CHANNEL_ID تنظیم نشده است")
+        return
+    if not update.message.audio:
+        await update.message.reply_text("ارسال ناموفق 🎧 فایل صوتی بفرست رئیس.")
+        return
 
-🎧 درخواست: {user_text}
-✅ به زودی آهنگ برای شما آماده می‌شود...
+    audio_file = update.message.audio
+    caption = f"🎶 {audio_file.title or 'Track'} - {audio_file.performer or ''}"
+    await context.bot.send_audio(chat_id=CHANNEL_ID, audio=audio_file.file_id, caption=caption)
+    await update.message.reply_text("✅ موزیک به کانال ارسال شد!")
 
-👑 Drop by: @musicyeooo
-#PersianRap #Trap #NewDrop
-    """
-    
-    await update.message.reply_text(message)
-    logger.info(f"✅ پاسخ به {user.first_name} ارسال شد")
+# 🧩 ساخت شیء اصلی Application
+application = Application.builder().token(BOT_TOKEN).build()
 
-async def error_handler(update, context):
-    logger.error(f"خطا در پردازش پیام: {context.error}")
+# 🧠 ثبت هندلرها
+application.add_handler(CommandHandler("start", start))
+application.add_handler(MessageHandler(filters.AUDIO, post_music))
 
-def main():
+# ♻️ Flask keep_alive برای health check Koyeb
+keep_alive()
+
+# 🌀 نسخه سازگار با asyncio – رفع خطای stop_running_marker
+async def main():
+    await application.initialize()
+    await application.start()
+    logger.info("🤖 Bot polling started successfully!")
+    await application.updater.start_polling()
+    await application.updater.idle()
+
+if __name__ == "__main__":
     try:
-        logger.info("🚀 در حال راه‌اندازی ربات...")
-        
-        # ساخت اپلیکیشن
-        app = Application.builder().token(TOKEN).build()
-        
-        # اضافه کردن هندلرها
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-        app.add_error_handler(error_handler)
-        
-        logger.info("🤖 ربات فعال شد و در حال گوش دادن...")
-        print("=" * 50)
-        print("🎵 ربات موزیک فایندر فعال شد!")
-        print("📞 آماده دریافت درخواست...")
-        print("=" * 50)
-        
-        # شروع ربات
-        app.run_polling(drop_pending_updates=True)
-        
+        asyncio.run(main())
     except Exception as e:
         logger.error(f"❌ خطای بحرانی: {e}")
-        exit(1)
-
-if __name__ == '__main__':
-    main()
+        raise
