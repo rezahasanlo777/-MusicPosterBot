@@ -30,18 +30,19 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ---------------- تابع اصلی ----------------
 async def main():
+    # Flask keep_alive برای health check
     keep_alive()
+
     application = Application.builder().token(BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
     logger.info("🤖 Bot polling started successfully!")
-    await application.run_polling(close_loop=False)
+    await application.run_polling()
 
 # ---------------- اجرای مستقیم ----------------
 if __name__ == "__main__":
-    try:
-        asyncio.get_event_loop().run_until_complete(main())
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("🛑 Bot stopped gracefully.")
+    # چون run_polling خودش loop داره، نباید asyncio run جداگانه داشته باشیم
+    import asyncio
+    asyncio.run(main())
