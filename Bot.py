@@ -3,7 +3,7 @@ import logging
 import asyncio
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from keep_alive import keep_alive  # اگه از keep_alive.py استفاده می‌کنی
+from keep_alive import keep_alive
 
 # ---------------- تنظیمات لاگر ----------------
 logging.basicConfig(
@@ -12,7 +12,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("__main__")
 
-# ---------------- خواندن توکن از Environment ----------------
+# ---------------- خواندن توکن ----------------
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     logger.error("❌ BOT_TOKEN در محیط تعریف نشده!")
@@ -21,7 +21,7 @@ if not BOT_TOKEN:
 logger.info("✅ توکن با موفقیت خوانده شد")
 logger.info("🚀 در حال راه‌اندازی ربات...")
 
-# ---------------- دستورات ربات ----------------
+# ---------------- دستورات ----------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("سلام رئیس 👑 من با موفقیت روی Koyeb بالا اومدم!")
 
@@ -30,12 +30,9 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ---------------- تابع اصلی ----------------
 async def main():
-    # فعال کردن Flask در پس‌زمینه برای health check
     keep_alive()
-
     application = Application.builder().token(BOT_TOKEN).build()
 
-    # هندلرها
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
@@ -44,4 +41,7 @@ async def main():
 
 # ---------------- اجرای مستقیم ----------------
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.get_event_loop().run_until_complete(main())
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("🛑 Bot stopped gracefully.")
