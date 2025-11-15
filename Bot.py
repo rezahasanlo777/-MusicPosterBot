@@ -1,38 +1,25 @@
 import os
 import logging
 import asyncio
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from keep_alive import keep_alive
+from threading import Thread
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from keep_alive import keep_alive  # Flask server for Koyeb health checks
 
-# ---------------- تنظیمات لاگر ----------------
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
-)
-logger = logging.getLogger("__main__")
+# ---------------- تنظیم لاگر ----------------
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# ---------------- خواندن توکن ----------------
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-if not BOT_TOKEN:
-    logger.error("❌ BOT_TOKEN در محیط تعریف نشده!")
-    raise SystemExit("توکن پیدا نشد!")
 
-logger.info("✅ توکن با موفقیت خوانده شد")
-logger.info("🚀 در حال راه‌اندازی ربات...")
+# ---------------- هندلِرها ----------------
+async def start(update, context):
+    await update.message.reply_text("سلام رئیس! رباتت آنلاینه 🎵")
 
-# ---------------- دستورات ----------------
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("سلام رئیس 👑 من با موفقیت روی Koyeb بالا اومدم!")
-
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def echo(update, context):
     await update.message.reply_text(update.message.text)
 
 # ---------------- تابع اصلی ----------------
 async def main():
-    # Flask keep_alive برای health check
-    keep_alive()
-
     application = Application.builder().token(BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
@@ -41,8 +28,13 @@ async def main():
     logger.info("🤖 Bot polling started successfully!")
     await application.run_polling()
 
-# ---------------- اجرای مستقیم ----------------
+# ---------------- اجرای برنامه ----------------
 if __name__ == "__main__":
-    # چون run_polling خودش loop داره، نباید asyncio run جداگانه داشته باشیم
-    import asyncio
+    logger.info("✅ توکن با موفقیت خوانده شد")
+    logger.info("🚀 در حال راه‌اندازی ربات...")
+
+    # اجرای Flask برای health check در thread جداگانه
+    Thread(target=keep_alive).start()
+
+    # اجرای async main در event loop اصلی
     asyncio.run(main())
